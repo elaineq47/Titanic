@@ -63,7 +63,7 @@ df['Pclass'] = df['Pclass'].astype(str)  ##convert the class from numeric to cat
 
 
 ##select columns 
-features = ['Pclass','Sex','Age','SibSp','Parch','Fare','Embarked']
+varname = ['SibSp','Parch','Fare']
 
 df['train_indicator'].value_counts()
 
@@ -71,6 +71,7 @@ df['train_indicator'].value_counts()
 ##categorize string columns 
 
 str_colname = ['Pclass','Sex','Age','Embarked'] ##get column name of string columns 
+df.index = list(range(0, df.shape[0])) ##reorder index, becuase index is not unique due to rbinding test and train
 dummies = pd.DataFrame(index = df.index)
 for col_idx in str_colname:
     
@@ -84,24 +85,37 @@ for col_idx in str_colname:
     
     
 
-cat_vars=['job','marital','education','default','housing','loan','contact','month','day_of_week','poutcome']
-data_vars=data.columns.values.tolist()
-to_keep=[i for i in data_vars if i not in cat_vars]
+##combine the converted categorical variables with the other numeric variables
+#varname = varname + dummies.columns.tolist()
+df_final = df[varname].join(dummies)
 
 
-idx_train  = df.index[df['train_indicator']==1].tolist()
+idx_train  = df['train_indicator'] == 1
 
 #### 3. Fit Logistic Regression 
-clf = LogisticRegression(random_state=0, solver='lbfgs',multi_class='multinomial').fit(df, y_train)
+clf = LogisticRegression(random_state=0, solver='lbfgs',multi_class='multinomial').fit(df_final.loc[idx_train], y_train)
 
 
+##generate predictions on training data
+train_pred = clf.predict(df_final.loc[idx_train])
 
-empty=pd.DataFrame(columns=['a'])
-empty['b'] = None
-df = df.assign(c=None)
-df = df.assign(d=df['a'])
-df['e'] = pd.Series(index=df.index)   
-df = pd.concat([df,pd.DataFrame(columns=list('f'))])
+##generate a simple prediction accuracy on training prediction 
+score = clf.score(df_final.loc[idx_train], y_train) #NOTE: the more correct way is to use the out of sample test data here for accuracy
+print(score)  ##our prediction accuracy on training data on the most simple logistic regression model is 0.81
+
+
+####4 predictions 
+##generate predictions on the test dataset using our model 
+
+test_df = df_final.loc[-idx_train]
+idx = np.where(np.asanyarray(np.isnan(test_df))) ##check for missing value in test data
+print idx 
+ ##there's only one record with missing value in the test datast, and that is fare; fill that in with the column average
+test_df = test_df.fillna(test_df.mean())
+np.where(np.asanyarray(np.isnan(test_df)))  ##check there's no more missings
+
+
+test_pred = clf.predict(test_df)  #<---final predictions 
 
 
 
